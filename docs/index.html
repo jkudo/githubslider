@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>SlideShare風ビューアー</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; background: #f4f7fa; margin: 0; }
+    .header { background: linear-gradient(90deg, #3275db, #6cd1ff); color: #fff; padding: 20px 0 10px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.05);}
+    .header-content { max-width: 900px; margin: auto; display: flex; align-items: center; justify-content: space-between;}
+    .logo { font-size: 2em; font-weight: bold; }
+    .header-info { font-size: .95em; }
+    .container { max-width: 900px; margin: 32px auto 0 auto; padding: 0 16px; }
+    .presentation-card { background: #fff; border-radius: 18px; margin-bottom: 32px; box-shadow: 0 2px 20px rgba(44,64,102,0.07); padding: 32px; }
+    .presentation-header { display: flex; align-items: center; justify-content: space-between; }
+    .presentation-title { font-size: 1.5em; font-weight: bold; }
+    .slide-img { max-width: 100%; max-height: 60vh; display: block; margin: 32px auto 16px auto; border-radius: 8px; box-shadow: 0 1px 10px rgba(44,64,102,0.07);}
+    .slide-nav { display: flex; gap: 8px; justify-content: center; align-items: center; }
+    .nav-btn { background: #3275db; color: #fff; border: none; border-radius: 6px; padding: 7px 16px; font-size: 1em; cursor: pointer; transition: background .2s; }
+    .nav-btn:disabled { background: #aaa; cursor: not-allowed; }
+    .thumbnails { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;}
+    .thumb { width: 72px; height: 54px; object-fit: cover; border: 2px solid #eee; border-radius: 4px; cursor: pointer; transition: border .2s;}
+    .thumb.selected { border-color: #3275db; }
+    .pdf-link { display: inline-block; margin-top: 12px; background: #16a085; color: #fff; padding: 6px 18px; border-radius: 6px; text-decoration: none; }
+    .pdf-link:hover { background: #138d75; }
+    @media (max-width: 600px) { .container, .presentation-card { padding: 6px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <div class="logo">📊 SlideViewer</div>
+      <div class="header-info">最終更新: <span id="timestamp"></span></div>
+    </div>
+  </div>
+  <div class="container">
+    <div id="presentations"></div>
+  </div>
+  <script>
+    document.getElementById("timestamp").textContent = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+    const presentations = [
+      {
+        name: "test4",
+        pdfUrl: "output/test4.pdf",
+        slides: ["output/slides/test4-00.png","output/slides/test4-01.png","output/slides/test4-02.png","output/slides/test4-03.png","output/slides/test4-04.png","output/slides/test4-05.png","output/slides/test4-06.png","output/slides/test4-07.png"]
+      },
+    ];
+    presentations.forEach((presentation, idx) => {
+      const presDiv = document.createElement("div");
+      presDiv.className = "presentation-card";
+      presDiv.innerHTML = `
+        <div class="presentation-header">
+          <span class="presentation-title">\${presentation.name}</span>
+          <a href="\${presentation.pdfUrl}" class="pdf-link" download>PDFダウンロード</a>
+        </div>
+        <div>
+          <img class="slide-img" id="slideimg\${idx}" src="\${presentation.slides.length ? presentation.slides[0] : ""}" alt="スライド1">
+        </div>
+        <div class="slide-nav">
+          <button class="nav-btn" id="prev\${idx}">← 前</button>
+          <span id="slidectr\${idx}">1 / \${presentation.slides.length}</span>
+          <button class="nav-btn" id="next\${idx}">次 →</button>
+        </div>
+        <div class="thumbnails" id="thumbs\${idx}">
+          \${presentation.slides.map((slide, i) => `<img class="thumb\${i===0?\" selected\":\"\"}" src="\${slide}" data-index="\${i}" alt="サムネ\${i+1}">`).join("")}
+        </div>
+      `;
+      document.getElementById("presentations").appendChild(presDiv);
+      let current = 0;
+      const imgElem = document.getElementById(`slideimg\${idx}`);
+      const ctrElem = document.getElementById(`slidectr\${idx}`);
+      const prevBtn = document.getElementById(`prev\${idx}`);
+      const nextBtn = document.getElementById(`next\${idx}`);
+      const thumbs = presDiv.querySelectorAll(".thumb");
+      function show(n) {
+        current = n;
+        imgElem.src = presentation.slides[current];
+        ctrElem.textContent = (current+1) + " / " + presentation.slides.length;
+        thumbs.forEach((t,i)=>t.classList.toggle("selected",i===current));
+        prevBtn.disabled = (current === 0);
+        nextBtn.disabled = (current === presentation.slides.length-1);
+      }
+      prevBtn.onclick = ()=> show(Math.max(current-1,0));
+      nextBtn.onclick = ()=> show(Math.min(current+1,presentation.slides.length-1));
+      thumbs.forEach((thumb,i)=>thumb.onclick=()=>show(i));
+    });
+    if (presentations.length === 0) {
+      document.getElementById("presentations").innerHTML = `
+        <div class="presentation-card">
+          <h2 class="presentation-title">プレゼンテーションが見つかりません</h2>
+          <p>source/ フォルダにPowerPointファイル(.pptx)をアップロードしてください。</p>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
