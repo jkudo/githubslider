@@ -124,27 +124,27 @@ jobs:
         echo '      presDiv.className = "presentation-card";' >> docs/index.html
         echo '      presDiv.innerHTML = `' >> docs/index.html
         echo '        <div class="presentation-header">' >> docs/index.html
-        echo '          <span class="presentation-title">\${presentation.name}</span>' >> docs/index.html
-        echo '          <a href="\${presentation.pdfUrl}" class="pdf-link" download>PDFダウンロード</a>' >> docs/index.html
+        echo '          <span class="presentation-title">${presentation.name}</span>' >> docs/index.html
+        echo '          <a href="${presentation.pdfUrl}" class="pdf-link" download>PDFダウンロード</a>' >> docs/index.html
         echo '        </div>' >> docs/index.html
         echo '        <div>' >> docs/index.html
-        echo '          <img class="slide-img" id="slideimg\${idx}" src="\${presentation.slides.length ? presentation.slides[0] : ""}" alt="スライド1">' >> docs/index.html
+        echo '          <img class="slide-img" id="slideimg${idx}" src="${presentation.slides.length ? presentation.slides[0] : ""}" alt="スライド1">' >> docs/index.html
         echo '        </div>' >> docs/index.html
         echo '        <div class="slide-nav">' >> docs/index.html
-        echo '          <button class="nav-btn" id="prev\${idx}">← 前</button>' >> docs/index.html
-        echo '          <span id="slidectr\${idx}">1 / \${presentation.slides.length}</span>' >> docs/index.html
-        echo '          <button class="nav-btn" id="next\${idx}">次 →</button>' >> docs/index.html
+        echo '          <button class="nav-btn" id="prev${idx}">← 前</button>' >> docs/index.html
+        echo '          <span id="slidectr${idx}">1 / ${presentation.slides.length}</span>' >> docs/index.html
+        echo '          <button class="nav-btn" id="next${idx}">次 →</button>' >> docs/index.html
         echo '        </div>' >> docs/index.html
-        echo '        <div class="thumbnails" id="thumbs\${idx}">' >> docs/index.html
-        echo '          \${presentation.slides.map((slide, i) => `<img class="thumb\${i===0?\" selected\":\"\"}" src="\${slide}" data-index="\${i}" alt="サムネ\${i+1}">`).join("")}' >> docs/index.html
+        echo '        <div class="thumbnails" id="thumbs${idx}">' >> docs/index.html
+        echo '          ${presentation.slides.map((slide, i) => `<img class="thumb${i===0 ? ' selected' : ''}" src="${slide}" data-index="${i}" alt="サムネ${i+1}">`).join("")}' >> docs/index.html
         echo '        </div>' >> docs/index.html
         echo '      `;' >> docs/index.html
         echo '      document.getElementById("presentations").appendChild(presDiv);' >> docs/index.html
         echo '      let current = 0;' >> docs/index.html
-        echo '      const imgElem = document.getElementById(`slideimg\${idx}`);' >> docs/index.html
-        echo '      const ctrElem = document.getElementById(`slidectr\${idx}`);' >> docs/index.html
-        echo '      const prevBtn = document.getElementById(`prev\${idx}`);' >> docs/index.html
-        echo '      const nextBtn = document.getElementById(`next\${idx}`);' >> docs/index.html
+        echo '      const imgElem = document.getElementById(`slideimg${idx}`);' >> docs/index.html
+        echo '      const ctrElem = document.getElementById(`slidectr${idx}`);' >> docs/index.html
+        echo '      const prevBtn = document.getElementById(`prev${idx}`);' >> docs/index.html
+        echo '      const nextBtn = document.getElementById(`next${idx}`);' >> docs/index.html
         echo '      const thumbs = presDiv.querySelectorAll(".thumb");' >> docs/index.html
         echo '      function show(n) {' >> docs/index.html
         echo '        current = n;' >> docs/index.html
