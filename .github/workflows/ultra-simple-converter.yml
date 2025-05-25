@@ -13,56 +13,56 @@ permissions:
 jobs:
   convert:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Debug - Check files
-      run: |
-        echo "=== Repository structure ==="
-        find . -type f -name "*.pptx" -o -name "*.ppt" | head -10
-        
-    - name: Install tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libreoffice imagemagick
-        sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/g' /etc/ImageMagick-6/policy.xml
-    
-    - name: Convert files
-      run: |
-        # Create directories
-        mkdir -p output docs/output/slides
-        
-        # Convert PowerPoint to PDF
-        converted=false
-        for file in source/*.pptx source/*.ppt; do
-          if [ -f "$file" ]; then
-            echo "Converting: $file"
-            libreoffice --headless --convert-to pdf --outdir output "$file"
-            converted=true
+      - uses: actions/checkout@v4
+
+      - name: Debug - Check files
+        run: |
+          echo "=== Repository structure ==="
+          find . -type f -name "*.pptx" -o -name "*.ppt" | head -10
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libreoffice imagemagick
+          sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/g' /etc/ImageMagick-6/policy.xml
+
+      - name: Convert files
+        run: |
+          # Create directories
+          mkdir -p output docs/output/slides
+
+          # Convert PowerPoint to PDF
+          converted=false
+          for file in source/*.pptx source/*.ppt; do
+            if [ -f "$file" ]; then
+              echo "Converting: $file"
+              libreoffice --headless --convert-to pdf --outdir output "$file"
+              converted=true
+            fi
+          done
+
+          if [ "$converted" = false ]; then
+            echo "No PowerPoint files found!"
+            exit 1
           fi
-        done
-        
-        if [ "$converted" = false ]; then
-          echo "No PowerPoint files found!"
-          exit 1
-        fi
-        
-        # Convert PDF to images
-        for pdf in output/*.pdf; do
-          if [ -f "$pdf" ]; then
-            filename=$(basename "$pdf" .pdf)
-            echo "Creating images for: $filename"
-            convert -density 150 "$pdf" "output/slides/${filename}-%02d.png" || echo "Image conversion failed for $pdf"
-          fi
-        done
-        
-        # Copy files to docs directory structure
-        cp -r output docs/ 2>/dev/null || echo "Copy completed with warnings"
-    
-    - name: Create HTML viewer
-      run: |
-        cat > docs/index.html << 'HTML_END'
+
+          # Convert PDF to images
+          for pdf in output/*.pdf; do
+            if [ -f "$pdf" ]; then
+              filename=$(basename "$pdf" .pdf)
+              echo "Creating images for: $filename"
+              convert -density 150 "$pdf" "output/slides/${filename}-%02d.png" || echo "Image conversion failed for $pdf"
+            fi
+          done
+
+          # Copy files to docs directory structure
+          cp -r output docs/ 2>/dev/null || echo "Copy completed with warnings"
+
+      - name: Create HTML viewer
+        run: |
+          cat > docs/index.html << 'HTML_END'
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -221,17 +221,17 @@ jobs:
 </body>
 </html>
 HTML_END
-    
-    - uses: actions/configure-pages@v4
-    - uses: actions/upload-pages-artifact@v3
-      with:
-        path: './docs'
-    - uses: actions/deploy-pages@v4
-    
-    - name: Commit
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add . || echo "Nothing to add"
-        git commit -m "Convert slides $(date)" || echo "Nothing to commit"
-        git push || echo "Nothing to push"
+
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: './docs'
+      - uses: actions/deploy-pages@v4
+
+      - name: Commit
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add . || echo "Nothing to add"
+          git commit -m "Convert slides $(date)" || echo "Nothing to commit"
+          git push || echo "Nothing to push"
