@@ -50,27 +50,27 @@
       presDiv.className = "presentation-card";
       presDiv.innerHTML = `
         <div class="presentation-header">
-          <span class="presentation-title">\${presentation.name}</span>
-          <a href="\${presentation.pdfUrl}" class="pdf-link" download>PDFダウンロード</a>
+          <span class="presentation-title">${presentation.name}</span>
+          <a href="${presentation.pdfUrl}" class="pdf-link" download>PDFダウンロード</a>
         </div>
         <div>
-          <img class="slide-img" id="slideimg\${idx}" src="\${presentation.slides.length ? presentation.slides[0] : ""}" alt="スライド1">
+          <img class="slide-img" id="slideimg${idx}" src="${presentation.slides.length ? presentation.slides[0] : ""}" alt="スライド1">
         </div>
         <div class="slide-nav">
-          <button class="nav-btn" id="prev\${idx}">← 前</button>
-          <span id="slidectr\${idx}">1 / \${presentation.slides.length}</span>
-          <button class="nav-btn" id="next\${idx}">次 →</button>
+          <button class="nav-btn" id="prev${idx}">← 前</button>
+          <span id="slidectr${idx}">1 / ${presentation.slides.length}</span>
+          <button class="nav-btn" id="next${idx}">次 →</button>
         </div>
-        <div class="thumbnails" id="thumbs\${idx}">
-          \${presentation.slides.map((slide, i) => `<img class="thumb\${i===0?\" selected\":\"\"}" src="\${slide}" data-index="\${i}" alt="サムネ\${i+1}">`).join("")}
+        <div class="thumbnails" id="thumbs${idx}">
+          ${presentation.slides.map((slide, i) => `<img class="thumb${i===0 ?  selected : }" src="${slide}" data-index="${i}" alt="サムネ${i+1}">`).join("")}
         </div>
       `;
       document.getElementById("presentations").appendChild(presDiv);
       let current = 0;
-      const imgElem = document.getElementById(`slideimg\${idx}`);
-      const ctrElem = document.getElementById(`slidectr\${idx}`);
-      const prevBtn = document.getElementById(`prev\${idx}`);
-      const nextBtn = document.getElementById(`next\${idx}`);
+      const imgElem = document.getElementById(`slideimg${idx}`);
+      const ctrElem = document.getElementById(`slidectr${idx}`);
+      const prevBtn = document.getElementById(`prev${idx}`);
+      const nextBtn = document.getElementById(`next${idx}`);
       const thumbs = presDiv.querySelectorAll(".thumb");
       function show(n) {
         current = n;
