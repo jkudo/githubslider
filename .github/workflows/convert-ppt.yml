@@ -19,100 +19,89 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
       
-    - name: Debug - List source files
+    - name: List files for debugging
       run: |
-        echo "=== Source directory contents ==="
-        ls -la source/ || echo "source directory not found"
         echo "=== Current directory ==="
         ls -la
+        echo "=== Source directory ==="
+        ls -la source/ 2>/dev/null || echo "source directory not found"
         
-    - name: Install LibreOffice
+    - name: Install LibreOffice and ImageMagick
       run: |
         sudo apt-get update
-        sudo apt-get install -y libreoffice libreoffice-java-common
+        sudo apt-get install -y libreoffice imagemagick
         
-    - name: Convert PPTX to PDF
+    - name: Configure ImageMagick for PDF
+      run: |
+        sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/g' /etc/ImageMagick-6/policy.xml
+        
+    - name: Convert PowerPoint to PDF
       run: |
         mkdir -p output
-        echo "Converting PowerPoint files..."
         
-        # sourceディレクトリ内のファイルをチェック
+        # Check if source directory exists
         if [ ! -d "source" ]; then
-          echo "Error: source directory does not exist"
+          echo "Error: source directory does not exist!"
+          echo "Please create source/ directory and upload PowerPoint files"
           exit 1
         fi
         
-        # PowerPointファイルを検索
+        # Convert PowerPoint files
         found_files=false
-        for file in source/*.ppt source/*.pptx source/*.PPT source/*.PPTX; do
+        for file in source/*.pptx source/*.ppt; do
           if [ -f "$file" ]; then
-            found_files=true
             echo "Converting: $file"
-            # ファイル名から拡張子を除去
-            basename=$(basename "$file")
-            filename="${basename%.*}"
-            
-            # LibreOfficeで変換
             libreoffice --headless --convert-to pdf --outdir output "$file"
-            
-            # 変換されたファイルの名前を確認・修正
-            if [ -f "output/${basename%.*}.pdf" ]; then
-              echo "Successfully converted: $file -> output/${filename}.pdf"
-            else
-              echo "Warning: Expected PDF not found for $file"
-              ls -la output/
-            fi
+            found_files=true
           fi
         done
         
         if [ "$found_files" = false ]; then
           echo "No PowerPoint files found in source directory"
+          echo "Contents of source/:"
           ls -la source/
           exit 1
         fi
         
-    - name: Install ImageMagick and configure
-      run: |
-        sudo apt-get install -y imagemagick
-        # PDF読み取り権限を設定
-        sudo sed -i 's|<policy domain="coder" rights="none" pattern="PDF" />|<policy domain="coder" rights="read\|write" pattern="PDF" />|g' /etc/ImageMagick-6/policy.xml
-        sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/g' /etc/ImageMagick-6/policy.xml
+        echo "=== Generated PDF files ==="
+        ls -la output/
         
-    - name: Convert PDF to PNG images
+    - name: Convert PDF to images
       run: |
         mkdir -p output/slides
         
         for pdf in output/*.pdf; do
           if [ -f "$pdf" ]; then
-            echo "Processing PDF: $pdf"
+            echo "Converting PDF to images: $pdf"
             filename=$(basename "$pdf" .pdf)
             
-            # PDFの情報を確認
-            identify "$pdf" || echo "Could not identify PDF: $pdf"
-            
-            # 高品質でPNG変換
-            echo "Converting $pdf to images..."
-            convert -density 300 -quality 95 -alpha remove -background white "$pdf" "output/slides/${filename}-%02d.png"
-            
-            # 生成された画像を確認
-            echo "Generated images for $filename:"
-            ls -la output/slides/${filename}-*.png || echo "No images generated for $filename"
+            # Convert with error handling
+            if convert -density 150 -quality 90 "$pdf" "output/slides/${filename}-%02d.png"; then
+              echo "Successfully converted $pdf to images"
+            else
+              echo "Failed to convert $pdf to images"
+            fi
           fi
         done
         
-        echo "=== Final output directory ==="
-        ls -la output/
-        echo "=== Slides directory ==="
-        ls -la output/slides/ || echo "No slides directory"
+        echo "=== Generated image files ==="
+        ls -la output/slides/ 2>/dev/null || echo "No slides directory created"
         
-    - name: Create SlideShare-style viewer
+    - name: Create simple HTML viewer
       run: |
         mkdir -p docs
         
-        # HTMLファイルの開始部分
+        # Copy output files to docs (only if output exists)
+        if [ -d "output" ]; then
+          cp -r output docs/
+          echo "Copied output to docs/"
+        else
+          echo "No output directory found - creating empty structure"
+          mkdir -p docs/output/slides
+        fi
+        
+        # Create simple HTML viewer
         cat > docs/index.html << 'EOF'
 <!DOCTYPE html>
 <html lang="ja">
@@ -130,7 +119,6 @@ jobs:
         }
         .header {
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
             padding: 20px 0;
             box-shadow: 0 2px 20px rgba(0,0,0,0.1);
         }
@@ -138,9 +126,7 @@ jobs:
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            text-align: center;
         }
         .logo { font-size: 28px; font-weight: bold; color: #667eea; }
         .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
@@ -162,19 +148,6 @@ jobs:
             margin-bottom: 15px;
             color: #2c3e50;
         }
-        .presentation-meta {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: #666;
-        }
         .download-btn {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
@@ -182,145 +155,81 @@ jobs:
             border-radius: 25px;
             text-decoration: none;
             font-weight: 600;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
+            display: inline-block;
+            margin-top: 10px;
         }
         .download-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
-        .viewer-container {
-            position: relative;
-            background: #f8f9fa;
-            min-height: 600px;
+        .slides-container {
+            padding: 30px;
         }
-        .viewer-controls {
-            background: #2c3e50;
-            color: white;
-            padding: 15px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .slide-counter { font-weight: 600; font-size: 16px; }
-        .control-buttons { display: flex; gap: 10px; align-items: center; }
-        .control-btn {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background 0.3s ease;
-            font-size: 14px;
-        }
-        .control-btn:hover { background: rgba(255,255,255,0.3); }
-        .control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .slide-viewer {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
-            min-height: 500px;
-            position: relative;
+            text-align: center;
+            margin-bottom: 30px;
         }
         .slide-image {
             max-width: 100%;
             max-height: 600px;
             border-radius: 8px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            transition: opacity 0.3s ease;
+            margin-bottom: 20px;
         }
-        .nav-arrow {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(0,0,0,0.7);
+        .slide-navigation {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        .nav-btn {
+            background: #667eea;
             color: white;
             border: none;
-            padding: 15px 20px;
-            font-size: 24px;
+            padding: 10px 20px;
+            border-radius: 6px;
             cursor: pointer;
-            border-radius: 50%;
-            transition: all 0.3s ease;
-            z-index: 10;
+            font-size: 16px;
         }
-        .nav-arrow:hover {
-            background: rgba(0,0,0,0.9);
-            transform: translateY(-50%) scale(1.1);
+        .nav-btn:hover { background: #5a6fd8; }
+        .nav-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .slide-counter {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 16px;
         }
-        .nav-arrow.prev { left: 20px; }
-        .nav-arrow.next { right: 20px; }
         .thumbnail-strip {
-            background: white;
-            padding: 20px;
-            border-top: 1px solid #e0e0e0;
-            overflow-x: auto;
-        }
-        .thumbnail-container {
             display: flex;
-            gap: 15px;
-            padding-bottom: 10px;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 20px 0;
+            justify-content: center;
         }
         .thumbnail {
             flex-shrink: 0;
-            width: 120px;
-            height: 90px;
+            width: 100px;
+            height: 75px;
             border-radius: 6px;
             overflow: hidden;
             cursor: pointer;
             border: 3px solid transparent;
             transition: all 0.3s ease;
-            position: relative;
         }
-        .thumbnail:hover {
-            transform: scale(1.05);
-            border-color: #667eea;
-        }
-        .thumbnail.active {
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
-        }
+        .thumbnail:hover { border-color: #667eea; }
+        .thumbnail.active { border-color: #667eea; }
         .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
-        .thumbnail-number {
-            position: absolute;
-            bottom: 4px;
-            right: 4px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 400px;
-            color: #666;
-            font-size: 18px;
-        }
-        .progress-bar {
-            height: 3px;
-            background: rgba(255,255,255,0.3);
-            position: relative;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            background: #667eea;
-            transition: width 0.3s ease;
-        }
         .error-message {
             background: #f8d7da;
             color: #721c24;
             padding: 20px;
             margin: 20px;
             border-radius: 8px;
-            border: 1px solid #f5c6cb;
+            text-align: center;
+        }
+        @media (max-width: 768px) {
+            .slide-navigation { flex-direction: column; align-items: center; }
+            .thumbnail { width: 80px; height: 60px; }
         }
     </style>
 </head>
@@ -328,125 +237,142 @@ jobs:
     <div class="header">
         <div class="header-content">
             <div class="logo">📊 SlideViewer</div>
-            <div>最終更新: <span id="timestamp"></span></div>
+            <p>PowerPoint → PDF → スライド画像 自動変換</p>
         </div>
     </div>
+    
     <div class="container">
         <div id="presentations"></div>
     </div>
-    <script>
-        // タイムスタンプを設定
-        document.getElementById('timestamp').textContent = new Date().toLocaleString('ja-JP', {
-            timeZone: 'Asia/Tokyo'
-        });
 
+    <script>
         // プレゼンテーションデータ
         const presentations = [];
+        
 EOF
 
-        # プレゼンテーションデータを動的に生成
-        echo "        // 自動生成されたプレゼンテーションデータ" >> docs/index.html
-        
-        for pdf in output/*.pdf; do
-          if [ -f "$pdf" ]; then
-            filename=$(basename "$pdf" .pdf)
-            echo "        presentations.push({" >> docs/index.html
-            echo "            name: '$filename'," >> docs/index.html
-            echo "            pdfUrl: 'output/${filename}.pdf'," >> docs/index.html
-            echo -n "            slides: [" >> docs/index.html
-            
-            # スライド画像のリストを作成
-            first=true
-            for img in output/slides/${filename}-*.png; do
-              if [ -f "$img" ]; then
-                imgname=$(basename "$img")
-                if [ "$first" = true ]; then
-                  first=false
-                else
-                  echo -n "," >> docs/index.html
-                fi
-                                echo -n "'output/slides/$imgname'" >> docs/index.html
+        # プレゼンテーションデータを生成
+        if [ -d "docs/output" ] && [ "$(ls -A docs/output/*.pdf 2>/dev/null)" ]; then
+          for pdf in docs/output/*.pdf; do
+            if [ -f "$pdf" ]; then
+              filename=$(basename "$pdf" .pdf)
+              echo "        presentations.push({" >> docs/index.html
+              echo "            name: '$filename'," >> docs/index.html
+              echo "            pdfUrl: 'output/${filename}.pdf'," >> docs/index.html
+              echo -n "            slides: [" >> docs/index.html
+              
+              # スライド画像のリストを作成
+              first=true
+              if [ -d "docs/output/slides" ]; then
+                for img in docs/output/slides/${filename}-*.png; do
+                  if [ -f "$img" ]; then
+                    imgname=$(basename "$img")
+                    if [ "$first" = true ]; then
+                      first=false
+                    else
+                      echo -n "," >> docs/index.html
+                    fi
+                    echo -n "'output/slides/$imgname'" >> docs/index.html
+                  fi
+                done
               fi
-            done
-            echo "]" >> docs/index.html
-            echo "        });" >> docs/index.html
-          fi
-        done
+              echo "]" >> docs/index.html
+              echo "        });" >> docs/index.html
+            fi
+          done
+        else
+          echo "        // No presentations found" >> docs/index.html
+        fi
 
-        # JavaScriptの残り部分を追加
+        # JavaScriptの続きを追加
         cat >> docs/index.html << 'EOF'
 
         // ビューアークラス
-        class SlideViewer {
-            constructor(container, slides, title) {
+        class SimpleSlideViewer {
+            constructor(container, slides, title, pdfUrl) {
                 this.container = container;
                 this.slides = slides;
                 this.title = title;
+                this.pdfUrl = pdfUrl;
                 this.currentSlide = 0;
-                this.init();
+                this.render();
             }
-
-            init() { this.render(); this.bindEvents(); }
 
             render() {
                 const slideCount = this.slides.length;
-                const progress = slideCount > 0 ? ((this.currentSlide + 1) / slideCount) * 100 : 0;
+                
+                if (slideCount === 0) {
+                    this.container.innerHTML = `
+                        <div class="error-message">
+                            <h3>⚠️ スライド画像が見つかりません</h3>
+                            <p>PDF変換は成功していますが、画像変換でエラーが発生した可能性があります。</p>
+                            <a href="${this.pdfUrl}" class="download-btn">📄 PDF版をダウンロード</a>
+                        </div>
+                    `;
+                    return;
+                }
 
                 this.container.innerHTML = `
-                    <div class="viewer-container">
-                        <div class="viewer-controls">
-                            <div class="slide-counter">${this.currentSlide + 1} / ${slideCount}</div>
-                            <div class="control-buttons">
-                                <button class="control-btn" onclick="this.parentElement.parentElement.parentElement.viewer.previousSlide()" ${this.currentSlide === 0 ? 'disabled' : ''}>← 前へ</button>
-                                <button class="control-btn" onclick="this.parentElement.parentElement.parentElement.viewer.nextSlide()" ${this.currentSlide >= slideCount - 1 ? 'disabled' : ''}>次へ →</button>
-                            </div>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${progress}%"></div>
-                        </div>
+                    <div class="presentation-header">
+                        <h2 class="presentation-title">${this.title}</h2>
+                        <div>📊 ${slideCount} スライド | 📅 ${new Date().toLocaleDateString('ja-JP')}</div>
+                        <a href="${this.pdfUrl}" class="download-btn" download>📄 PDF ダウンロード</a>
+                    </div>
+                    <div class="slides-container">
+                        <div class="slide-counter">スライド ${this.currentSlide + 1} / ${slideCount}</div>
                         <div class="slide-viewer">
-                            ${slideCount > 0 ? `
-                                <button class="nav-arrow prev" onclick="this.parentElement.parentElement.viewer.previousSlide()" ${this.currentSlide === 0 ? 'style="display:none"' : ''}>❮</button>
-                                <img class="slide-image" src="${this.slides[this.currentSlide]}" alt="Slide ${this.currentSlide + 1}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUI5QjlCIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCI+U2xpZGUgTm90IEZvdW5kPC90ZXh0Pgo8L3N2Zz4K'">
-                                <button class="nav-arrow next" onclick="this.parentElement.parentElement.viewer.nextSlide()" ${this.currentSlide >= slideCount - 1 ? 'style="display:none"' : ''}>❯</button>
-                            ` : '<div class="loading">スライドがありません</div>'}
+                            <img class="slide-image" src="${this.slides[this.currentSlide]}" alt="Slide ${this.currentSlide + 1}">
+                        </div>
+                        <div class="slide-navigation">
+                            <button class="nav-btn" onclick="viewers[${viewers.length}].previousSlide()" ${this.currentSlide === 0 ? 'disabled' : ''}>← 前へ</button>
+                            <button class="nav-btn" onclick="viewers[${viewers.length}].nextSlide()" ${this.currentSlide >= slideCount - 1 ? 'disabled' : ''}>次へ →</button>
                         </div>
                         <div class="thumbnail-strip">
-                            <div class="thumbnail-container">
-                                ${this.slides.map((slide, index) => `
-                                    <div class="thumbnail ${index === this.currentSlide ? 'active' : ''}" onclick="this.parentElement.parentElement.parentElement.viewer.goToSlide(${index})">
-                                        <img src="${slide}" alt="Slide ${index + 1}" onerror="this.style.display='none'">
-                                        <div class="thumbnail-number">${index + 1}</div>
-                                    </div>
-                                `).join('')}
-                            </div>
+                            ${this.slides.map((slide, index) => `
+                                <div class="thumbnail ${index === this.currentSlide ? 'active' : ''}" onclick="viewers[${viewers.length}].goToSlide(${index})">
+                                    <img src="${slide}" alt="Slide ${index + 1}">
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
                 `;
-                this.container.viewer = this;
             }
 
-            bindEvents() {
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'ArrowLeft') this.previousSlide();
-                    if (e.key === 'ArrowRight') this.nextSlide();
-                });
+            nextSlide() {
+                if (this.currentSlide < this.slides.length - 1) {
+                    this.currentSlide++;
+                    this.render();
+                }
             }
 
-            nextSlide() { if (this.currentSlide < this.slides.length - 1) { this.currentSlide++; this.render(); } }
-            previousSlide() { if (this.currentSlide > 0) { this.currentSlide--; this.render(); } }
-            goToSlide(index) { if (index >= 0 && index < this.slides.length) { this.currentSlide = index; this.render(); } }
+            previousSlide() {
+                if (this.currentSlide > 0) {
+                    this.currentSlide--;
+                    this.render();
+                }
+            }
+
+            goToSlide(index) {
+                if (index >= 0 && index < this.slides.length) {
+                    this.currentSlide = index;
+                    this.render();
+                }
+            }
         }
+
+        // グローバルビューアー配列
+        const viewers = [];
 
         // プレゼンテーション表示
         const container = document.getElementById('presentations');
+        
         if (presentations.length === 0) {
             container.innerHTML = `
                 <div class="presentation-card">
                     <div class="error-message">
                         <h3>⚠️ プレゼンテーションが見つかりません</h3>
                         <p>以下をご確認ください：</p>
-                        <ul>
+                        <ul style="text-align: left; margin: 15px 0;">
                             <li>source/ フォルダにPowerPointファイル(.pptx)をアップロードしましたか？</li>
                             <li>GitHub Actionsは正常に実行されましたか？</li>
                             <li>ファイル名に特殊文字は含まれていませんか？</li>
@@ -459,33 +385,28 @@ EOF
             presentations.forEach((presentation, index) => {
                 const div = document.createElement('div');
                 div.className = 'presentation-card';
-                div.innerHTML = `
-                    <div class="presentation-header">
-                        <h2 class="presentation-title">${presentation.name}</h2>
-                        <div class="presentation-meta">
-                            <div class="meta-item">📊 <span>${presentation.slides.length} スライド</span></div>
-                            <div class="meta-item">📅 <span>${new Date().toLocaleDateString('ja-JP')}</span></div>
-                            <div class="meta-item">💾 <span>自動変換済み</span></div>
-                            <a href="${presentation.pdfUrl}" class="download-btn" download>📄 PDF ダウンロード</a>
-                        </div>
-                    </div>
-                    <div class="viewer-placeholder"></div>
-                `;
                 container.appendChild(div);
-                new SlideViewer(div.querySelector('.viewer-placeholder'), presentation.slides, presentation.name);
+                
+                const viewer = new SimpleSlideViewer(div, presentation.slides, presentation.name, presentation.pdfUrl);
+                viewers.push(viewer);
             });
         }
+
+        // キーボードナビゲーション
+        document.addEventListener('keydown', (e) => {
+            if (viewers.length > 0) {
+                const viewer = viewers[0]; // 最初のプレゼンテーション
+                if (e.key === 'ArrowLeft') viewer.previousSlide();
+                if (e.key === 'ArrowRight') viewer.nextSlide();
+            }
+        });
     </script>
 </body>
 </html>
 EOF
-        
-    - name: Copy output files to docs
-      run: |
-        # outputディレクトリをdocsにコピー
-        cp -r output docs/ || echo "No output directory to copy"
-        echo "=== Docs directory structure ==="
-        find docs -type f | head -20
+
+        echo "=== Generated HTML viewer ==="
+        ls -la docs/
         
     - name: Setup Pages
       uses: actions/configure-pages@v4
@@ -499,10 +420,10 @@ EOF
       id: deployment
       uses: actions/deploy-pages@v4
         
-    - name: Commit and push changes
+    - name: Commit changes
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add .
-        git commit -m "🔄 Auto-convert PowerPoint slides $(date '+%Y-%m-%d %H:%M:%S')" || exit 0
+        git commit -m "🔄 Auto-convert slides $(date '+%Y-%m-%d %H:%M:%S')" || exit 0
         git push
