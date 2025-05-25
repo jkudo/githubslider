@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プレゼンテーション - SlideShare風ビューアー</title>
+    <style>
+        /* ...（省略：CSS部分は元のものを流用してください）... */
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">📊 SlideViewer</div>
+            <div class="header-info">
+                最終更新: <span id="timestamp"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="presentations"></div>
+    </div>
+
+    <script>
+        class SlideViewer {
+            /* ...（省略：元のJavaScriptをそのまま貼ってください）... */
+        }
+        // タイムスタンプを設定
+        document.getElementById('timestamp').textContent = new Date().toLocaleString('ja-JP', {
+            timeZone: 'Asia/Tokyo',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        // プレゼンテーションデータを動的に生成
+        const presentations = [];
+
+        const container = document.getElementById('presentations');
+        presentations.forEach((presentation, index) => {
+            /* ...（省略：元のJavaScriptをそのまま貼ってください）... */
+        });
+
+        if (presentations.length === 0) {
+            container.innerHTML = `
+                <div class="presentation-card">
+                    <div class="presentation-header">
+                        <h2 class="presentation-title">プレゼンテーションが見つかりません</h2>
+                        <p style="margin-top: 15px; color: #666;">
+                            <code>source/</code> フォルダにPowerPointファイル(.pptx)をアップロードしてください。<br>
+                            自動的に変換されてここに表示されます。
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
