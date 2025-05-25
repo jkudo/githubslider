@@ -30,10 +30,8 @@ jobs:
 
       - name: Convert files
         run: |
-          # Create directories
           mkdir -p output docs/output/slides
 
-          # Convert PowerPoint to PDF
           converted=false
           for file in source/*.pptx source/*.ppt; do
             if [ -f "$file" ]; then
@@ -48,7 +46,6 @@ jobs:
             exit 1
           fi
 
-          # Convert PDF to images
           for pdf in output/*.pdf; do
             if [ -f "$pdf" ]; then
               filename=$(basename "$pdf" .pdf)
@@ -57,170 +54,45 @@ jobs:
             fi
           done
 
-          # Copy files to docs directory structure
           cp -r output docs/ 2>/dev/null || echo "Copy completed with warnings"
 
       - name: Create HTML viewer
         run: |
-          cat > docs/index.html << 'HTML_END'
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>スライドビューアー</title>
-    <style>
-        body { font-family: sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
-        .card { background: white; border-radius: 10px; padding: 30px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .title { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 20px; }
-        .download { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-        .download:hover { background: #0056b3; }
-        .slide-container { text-align: center; margin: 20px 0; }
-        .slide-img { max-width: 100%; max-height: 600px; border: 1px solid #ddd; border-radius: 5px; margin: 10px; }
-        .nav { text-align: center; margin: 20px 0; }
-        .btn { background: #28a745; color: white; border: none; padding: 10px 20px; margin: 0 5px; border-radius: 5px; cursor: pointer; }
-        .btn:hover { background: #1e7e34; }
-        .btn:disabled { background: #ccc; cursor: not-allowed; }
-        .counter { text-align: center; color: #666; margin: 10px 0; }
-        .thumbnails { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 20px 0; }
-        .thumb { width: 80px; height: 60px; border: 2px solid #ddd; border-radius: 3px; cursor: pointer; }
-        .thumb:hover, .thumb.active { border-color: #007bff; }
-        .error { background: #f8d7da; color: #721c24; padding: 20px; border-radius: 5px; text-align: center; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1 class="title">📊 プレゼンテーションビューアー</h1>
-        <div id="content">Loading...</div>
-    </div>
-
-    <script>
-        // データ収集
-        const presentations = [];
-        
-        // 動的にプレゼンテーションデータを生成する関数
-        async function loadPresentations() {
-            const pdfFiles = [];
-            
-            // 既知のファイルをチェック (GitHub Actions で生成される可能性があるファイル名)
-            const possibleFiles = ['test', 'test2', 'presentation', 'slide', 'deck'];
-            
-            for (const name of possibleFiles) {
-                try {
-                    const response = await fetch(`output/${name}.pdf`);
-                    if (response.ok) {
-                        const slides = [];
-                        // スライド画像をチェック
-                        for (let i = 0; i < 50; i++) {
-                            const imgNum = i.toString().padStart(2, '0');
-                            try {
-                                const imgResponse = await fetch(`output/slides/${name}-${imgNum}.png`);
-                                if (imgResponse.ok) {
-                                    slides.push(`output/slides/${name}-${imgNum}.png`);
-                                } else {
-                                    break;
-                                }
-                            } catch (e) {
-                                break;
-                            }
-                        }
-                        
-                        presentations.push({
-                            name: name,
-                            pdfUrl: `output/${name}.pdf`,
-                            slides: slides
-                        });
-                    }
-                } catch (e) {
-                    // ファイルが存在しない場合は無視
-                }
-            }
-            
-            renderPresentations();
-        }
-        
-        function renderPresentations() {
-            const content = document.getElementById('content');
-            
-            if (presentations.length === 0) {
-                content.innerHTML = `
-                    <div class="error">
-                        <h3>⚠️ プレゼンテーションが見つかりません</h3>
-                        <p>source/ フォルダにPowerPointファイルをアップロードして、GitHub Actionsを実行してください。</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            presentations.forEach((pres, index) => {
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <div class="card">
-                        <h2 class="title">${pres.name}</h2>
-                        <a href="${pres.pdfUrl}" class="download" download>📄 PDF ダウンロード</a>
-                        
-                        <div class="slide-container" id="viewer-${index}">
-                            ${pres.slides.length > 0 ? 
-                                `<div class="counter">スライド <span id="current-${index}">1</span> / ${pres.slides.length}</div>
-                                 <img class="slide-img" id="slide-${index}" src="${pres.slides[0]}" alt="Slide 1">
-                                 <div class="nav">
-                                     <button class="btn" onclick="changeSlide(${index}, -1)">← 前</button>
-                                     <button class="btn" onclick="changeSlide(${index}, 1)">次 →</button>
-                                 </div>
-                                 <div class="thumbnails">
-                                     ${pres.slides.map((slide, i) => 
-                                         `<img class="thumb ${i === 0 ? 'active' : ''}" src="${slide}" onclick="goToSlide(${index}, ${i})" alt="Slide ${i+1}">`
-                                     ).join('')}
-                                 </div>` 
-                                : '<div class="error">スライド画像が見つかりません</div>'
-                            }
-                        </div>
-                    </div>
-                `;
-                content.appendChild(div);
-            });
-        }
-        
-        let currentSlides = {};
-        
-        function changeSlide(presIndex, direction) {
-            if (!currentSlides[presIndex]) currentSlides[presIndex] = 0;
-            
-            const pres = presentations[presIndex];
-            const newIndex = currentSlides[presIndex] + direction;
-            
-            if (newIndex >= 0 && newIndex < pres.slides.length) {
-                goToSlide(presIndex, newIndex);
-            }
-        }
-        
-        function goToSlide(presIndex, slideIndex) {
-            currentSlides[presIndex] = slideIndex;
-            const pres = presentations[presIndex];
-            
-            document.getElementById(`slide-${presIndex}`).src = pres.slides[slideIndex];
-            document.getElementById(`current-${presIndex}`).textContent = slideIndex + 1;
-            
-            // サムネイルの更新
-            document.querySelectorAll(`#viewer-${presIndex} .thumb`).forEach((thumb, i) => {
-                thumb.classList.toggle('active', i === slideIndex);
-            });
-        }
-        
-        // キーボードナビゲーション
-        document.addEventListener('keydown', (e) => {
-            if (presentations.length > 0) {
-                if (e.key === 'ArrowLeft') changeSlide(0, -1);
-                if (e.key === 'ArrowRight') changeSlide(0, 1);
-            }
-        });
-        
-        // 初期化
-        loadPresentations();
-    </script>
-</body>
-</html>
-HTML_END
+          echo '<!DOCTYPE html>' > docs/index.html
+          echo '<html lang="ja">' >> docs/index.html
+          echo '<head>' >> docs/index.html
+          echo '    <meta charset="UTF-8">' >> docs/index.html
+          echo '    <meta name="viewport" content="width=device-width, initial-scale=1.0">' >> docs/index.html
+          echo '    <title>スライドビューアー</title>' >> docs/index.html
+          echo '    <style>' >> docs/index.html
+          echo '        body { font-family: sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f5f5f5; }' >> docs/index.html
+          echo '        .card { background: white; border-radius: 10px; padding: 30px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }' >> docs/index.html
+          echo '        .title { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 20px; }' >> docs/index.html
+          echo '        .download { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }' >> docs/index.html
+          echo '        .download:hover { background: #0056b3; }' >> docs/index.html
+          echo '        .slide-container { text-align: center; margin: 20px 0; }' >> docs/index.html
+          echo '        .slide-img { max-width: 100%; max-height: 600px; border: 1px solid #ddd; border-radius: 5px; margin: 10px; }' >> docs/index.html
+          echo '        .nav { text-align: center; margin: 20px 0; }' >> docs/index.html
+          echo '        .btn { background: #28a745; color: white; border: none; padding: 10px 20px; margin: 0 5px; border-radius: 5px; cursor: pointer; }' >> docs/index.html
+          echo '        .btn:hover { background: #1e7e34; }' >> docs/index.html
+          echo '        .btn:disabled { background: #ccc; cursor: not-allowed; }' >> docs/index.html
+          echo '        .counter { text-align: center; color: #666; margin: 10px 0; }' >> docs/index.html
+          echo '        .thumbnails { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 20px 0; }' >> docs/index.html
+          echo '        .thumb { width: 80px; height: 60px; border: 2px solid #ddd; border-radius: 3px; cursor: pointer; }' >> docs/index.html
+          echo '        .thumb:hover, .thumb.active { border-color: #007bff; }' >> docs/index.html
+          echo '        .error { background: #f8d7da; color: #721c24; padding: 20px; border-radius: 5px; text-align: center; }' >> docs/index.html
+          echo '    </style>' >> docs/index.html
+          echo '</head>' >> docs/index.html
+          echo '<body>' >> docs/index.html
+          echo '    <div class="card">' >> docs/index.html
+          echo '        <h1 class="title">📊 プレゼンテーションビューアー</h1>' >> docs/index.html
+          echo '        <div id="content">Loading...</div>' >> docs/index.html
+          echo '    </div>' >> docs/index.html
+          echo '    <script>' >> docs/index.html
+          echo '      document.getElementById("content").innerHTML = "<div class=\"error\"><h3>⚠️ プレゼンテーションが見つかりません</h3><p>source/ フォルダにPowerPointファイルをアップロードして、GitHub Actionsを実行してください。</p></div>";' >> docs/index.html
+          echo '    </script>' >> docs/index.html
+          echo '</body>' >> docs/index.html
+          echo '</html>' >> docs/index.html
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
