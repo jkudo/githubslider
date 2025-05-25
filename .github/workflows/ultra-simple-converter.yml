@@ -1,4 +1,4 @@
-name: Convert PowerPoint to PDF and Images
+name: SlideShare Style PowerPoint Auto Converter
 
 on:
   push:
@@ -20,14 +20,10 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install LibreOffice
+    - name: Install LibreOffice and ImageMagick
       run: |
         sudo apt-get update
-        sudo apt-get install -y libreoffice
-
-    - name: Install ImageMagick and configure
-      run: |
-        sudo apt-get install -y imagemagick
+        sudo apt-get install -y libreoffice imagemagick
         # PDF変換のためのポリシー設定
         if [ -f /etc/ImageMagick-6/policy.xml ]; then
           sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml
@@ -37,18 +33,18 @@ jobs:
 
     - name: Convert PPTX to PDF
       run: |
-        mkdir -p output
+        mkdir -p docs/output
         for file in source/*.ppt*; do
           if [ -f "$file" ]; then
             echo "Converting: $file"
-            libreoffice --headless --convert-to pdf --outdir output "$file"
+            libreoffice --headless --convert-to pdf --outdir docs/output "$file"
           fi
         done
 
     - name: Convert PDF to PNG images
       run: |
         mkdir -p docs/output/slides
-        for pdf in output/*.pdf; do
+        for pdf in docs/output/*.pdf; do
           if [ -f "$pdf" ]; then
             filename=$(basename "$pdf" .pdf)
             echo "Creating slides for: $pdf"
@@ -56,173 +52,123 @@ jobs:
           fi
         done
 
-    - name: Copy PDFs to docs/output/
-      run: |
-        mkdir -p docs/output
-        cp output/*.pdf docs/output/ || true
-
     - name: Create SlideShare-style viewer
       run: |
         mkdir -p docs
-        cat > docs/index.html << 'EOF'
-        <!DOCTYPE html>
-        <html lang="ja">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>プレゼンテーション - SlideShare風ビューアー</title>
-            <style>
-                /* ...（省略：CSS部分は元のものを流用してください）... */
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <div class="header-content">
-                    <div class="logo">📊 SlideViewer</div>
-                    <div class="header-info">
-                        最終更新: <span id="timestamp"></span>
-                    </div>
-                </div>
-            </div>
+        echo '<!DOCTYPE html>' > docs/index.html
+        echo '<html lang="ja">' >> docs/index.html
+        echo '<head>' >> docs/index.html
+        echo '  <meta charset="UTF-8">' >> docs/index.html
+        echo '  <meta name="viewport" content="width=device-width,initial-scale=1.0">' >> docs/index.html
+        echo '  <title>SlideShare風ビューアー</title>' >> docs/index.html
+        echo '  <style>' >> docs/index.html
+        echo '    body { font-family: "Segoe UI", sans-serif; background: #f4f7fa; margin: 0; }' >> docs/index.html
+        echo '    .header { background: linear-gradient(90deg, #3275db, #6cd1ff); color: #fff; padding: 20px 0 10px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.05);}' >> docs/index.html
+        echo '    .header-content { max-width: 900px; margin: auto; display: flex; align-items: center; justify-content: space-between;}' >> docs/index.html
+        echo '    .logo { font-size: 2em; font-weight: bold; }' >> docs/index.html
+        echo '    .header-info { font-size: .95em; }' >> docs/index.html
+        echo '    .container { max-width: 900px; margin: 32px auto 0 auto; padding: 0 16px; }' >> docs/index.html
+        echo '    .presentation-card { background: #fff; border-radius: 18px; margin-bottom: 32px; box-shadow: 0 2px 20px rgba(44,64,102,0.07); padding: 32px; }' >> docs/index.html
+        echo '    .presentation-header { display: flex; align-items: center; justify-content: space-between; }' >> docs/index.html
+        echo '    .presentation-title { font-size: 1.5em; font-weight: bold; }' >> docs/index.html
+        echo '    .slide-img { max-width: 100%; max-height: 60vh; display: block; margin: 32px auto 16px auto; border-radius: 8px; box-shadow: 0 1px 10px rgba(44,64,102,0.07);}' >> docs/index.html
+        echo '    .slide-nav { display: flex; gap: 8px; justify-content: center; align-items: center; }' >> docs/index.html
+        echo '    .nav-btn { background: #3275db; color: #fff; border: none; border-radius: 6px; padding: 7px 16px; font-size: 1em; cursor: pointer; transition: background .2s; }' >> docs/index.html
+        echo '    .nav-btn:disabled { background: #aaa; cursor: not-allowed; }' >> docs/index.html
+        echo '    .thumbnails { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;}' >> docs/index.html
+        echo '    .thumb { width: 72px; height: 54px; object-fit: cover; border: 2px solid #eee; border-radius: 4px; cursor: pointer; transition: border .2s;}' >> docs/index.html
+        echo '    .thumb.selected { border-color: #3275db; }' >> docs/index.html
+        echo '    .pdf-link { display: inline-block; margin-top: 12px; background: #16a085; color: #fff; padding: 6px 18px; border-radius: 6px; text-decoration: none; }' >> docs/index.html
+        echo '    .pdf-link:hover { background: #138d75; }' >> docs/index.html
+        echo '    @media (max-width: 600px) { .container, .presentation-card { padding: 6px; } }' >> docs/index.html
+        echo '  </style>' >> docs/index.html
+        echo '</head>' >> docs/index.html
+        echo '<body>' >> docs/index.html
+        echo '  <div class="header">' >> docs/index.html
+        echo '    <div class="header-content">' >> docs/index.html
+        echo '      <div class="logo">📊 SlideViewer</div>' >> docs/index.html
+        echo '      <div class="header-info">最終更新: <span id="timestamp"></span></div>' >> docs/index.html
+        echo '    </div>' >> docs/index.html
+        echo '  </div>' >> docs/index.html
+        echo '  <div class="container">' >> docs/index.html
+        echo '    <div id="presentations"></div>' >> docs/index.html
+        echo '  </div>' >> docs/index.html
+        echo '  <script>' >> docs/index.html
+        echo '    document.getElementById("timestamp").textContent = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });' >> docs/index.html
+        echo '    const presentations = [' >> docs/index.html
 
-            <div class="container">
-                <div id="presentations"></div>
-            </div>
-
-            <script>
-                class SlideViewer {
-                    /* ...（省略：元のJavaScriptをそのまま貼ってください）... */
-                }
-                // タイムスタンプを設定
-                document.getElementById('timestamp').textContent = new Date().toLocaleString('ja-JP', {
-                    timeZone: 'Asia/Tokyo',
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-
-                // プレゼンテーションデータを動的に生成
-                const presentations = [];
-        EOF
-
+        # プレゼン配列自動生成
         for pdf in docs/output/*.pdf; do
-          if [ -f "$pdf" ]; then
-            filename=$(basename "$pdf" .pdf)
-            echo "                presentations.push({" >> docs/index.html
-            echo "                    name: '$filename'," >> docs/index.html
-            echo "                    pdfUrl: 'output/${filename}.pdf'," >> docs/index.html
-            echo -n "                    slides: [" >> docs/index.html
-            first=true
-            for img in docs/output/slides/${filename}-*.png; do
-              if [ -f "$img" ]; then
-                imgname=$(basename "$img")
-                if [ "$first" = true ]; then
-                  first=false
-                else
-                  echo -n "," >> docs/index.html
-                fi
-                echo -n "'output/slides/$imgname'" >> docs/index.html
-              fi
-            done
-            echo "]" >> docs/index.html
-            echo "                });" >> docs/index.html
-          fi
+          [ -f "$pdf" ] || continue
+          filename=$(basename "$pdf" .pdf)
+          echo "      {" >> docs/index.html
+          echo "        name: \"$filename\"," >> docs/index.html
+          echo "        pdfUrl: \"output/${filename}.pdf\"," >> docs/index.html
+          echo -n "        slides: [" >> docs/index.html
+          first=true
+          for img in docs/output/slides/${filename}-*.png; do
+            [ -f "$img" ] || continue
+            imgname=$(basename "$img")
+            if [ "$first" = true ]; then first=false; else echo -n "," >> docs/index.html; fi
+            echo -n "\"output/slides/$imgname\"" >> docs/index.html
+          done
+          echo "]" >> docs/index.html
+          echo "      }," >> docs/index.html
         done
 
-        cat >> docs/index.html << 'EOF'
+        echo '    ];' >> docs/index.html
 
-                const container = document.getElementById('presentations');
-                presentations.forEach((presentation, index) => {
-                    /* ...（省略：元のJavaScriptをそのまま貼ってください）... */
-                });
-
-                if (presentations.length === 0) {
-                    container.innerHTML = `
-                        <div class="presentation-card">
-                            <div class="presentation-header">
-                                <h2 class="presentation-title">プレゼンテーションが見つかりません</h2>
-                                <p style="margin-top: 15px; color: #666;">
-                                    <code>source/</code> フォルダにPowerPointファイル(.pptx)をアップロードしてください。<br>
-                                    自動的に変換されてここに表示されます。
-                                </p>
-                            </div>
-                        </div>
-                    `;
-                }
-            </script>
-        </body>
-        </html>
-        EOF
-
-    - name: Update README
-      run: |
-        cat > README.md << 'EOF'
-        # 📊 SlideShare風プレゼンテーションビューアー
-
-        PowerPointファイルが自動的にSlideShare風の美しいWebビューアーに変換されます。
-
-        ## 🌐 スライドを見る
-        [**🎯 SlideShare風ビューアーを開く**](https://$(echo $GITHUB_REPOSITORY | cut -d'/' -f1).github.io/$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)/)
-
-        ## ✨ 主な機能
-        - 📱 **レスポンシブデザイン** - PC・タブレット・スマホ対応
-        - 🖼️ **サムネイル一覧** - 全スライドを一覧表示
-        - ⌨️ **キーボードナビゲーション** - ←→キーでスライド送り
-        - 🔍 **フルスクリーンモード** - プレゼンテーション表示
-        - 📊 **プログレスバー** - 進行状況を視覚化
-        - 💾 **PDFダウンロード** - 元ファイルの取得
-
-        ## 🎨 デザインの特徴
-        - 現代的なグラデーション背景
-        - ガラスモーフィズム効果
-        - SlideShare風の洗練されたUI
-        - スムーズなアニメーション
-        - プロフェッショナルな見た目
-
-        ## 📁 ファイル構成
-        ```
-        ├── source/          # PowerPointファイルを配置
-        │   └── *.pptx      # アップロードするファイル
-        ├── docs/
-        │   ├── index.html  # メインページ
-        │   └── output/
-        │       ├── *.pdf   # PDF版
-        │       └── slides/ # スライド画像
-        └── README.md
-        ```
-
-        ## 🔧 使用方法
-        1. **📤 アップロード**: `source/`フォルダにPowerPointファイル(.pptx)をアップロード
-        2. **⚡ 自動変換**: GitHub Actionsが自動的に変換を開始
-        3. **🌐 公開**: GitHub PagesでSlideShare風ビューアーが公開
-        4. **👀 閲覧**: 美しいWebインターフェースでスライドを閲覧
-
-        ## 🎯 操作方法
-        ### 基本操作
-        - **← → ボタン**: スライド送り
-        - **サムネイル**: クリックで任意のスライドにジャンプ
-        - **フルスクリーンボタン**: プレゼンテーションモード
-        - **PDFダウンロード**: 元ファイルのダウンロード
-
-        ### キーボードショートカット
-        - **← / → キー**: スライド送り（フルスクリーン時）
-        - **Esc キー**: フルスクリーン終了
-
-        ## 📥 直接ダウンロード
-        EOF
-
-        for pdf in docs/output/*.pdf; do
-          if [ -f "$pdf" ]; then
-            filename=$(basename "$pdf")
-            echo "- [${filename}](docs/output/${filename})" >> README.md
-          fi
-        done
-
-        echo "" >> README.md
-        echo "## 🕒 最終更新" >> README.md
-        echo "$(date '+%Y年%m月%d日 %H:%M:%S')" >> README.md
+        # JS本体をechoで分割出力
+        echo '    presentations.forEach((presentation, idx) => {' >> docs/index.html
+        echo '      const presDiv = document.createElement("div");' >> docs/index.html
+        echo '      presDiv.className = "presentation-card";' >> docs/index.html
+        echo '      presDiv.innerHTML = `' >> docs/index.html
+        echo '        <div class="presentation-header">' >> docs/index.html
+        echo '          <span class="presentation-title">\${presentation.name}</span>' >> docs/index.html
+        echo '          <a href="\${presentation.pdfUrl}" class="pdf-link" download>PDFダウンロード</a>' >> docs/index.html
+        echo '        </div>' >> docs/index.html
+        echo '        <div>' >> docs/index.html
+        echo '          <img class="slide-img" id="slideimg\${idx}" src="\${presentation.slides.length ? presentation.slides[0] : ""}" alt="スライド1">' >> docs/index.html
+        echo '        </div>' >> docs/index.html
+        echo '        <div class="slide-nav">' >> docs/index.html
+        echo '          <button class="nav-btn" id="prev\${idx}">← 前</button>' >> docs/index.html
+        echo '          <span id="slidectr\${idx}">1 / \${presentation.slides.length}</span>' >> docs/index.html
+        echo '          <button class="nav-btn" id="next\${idx}">次 →</button>' >> docs/index.html
+        echo '        </div>' >> docs/index.html
+        echo '        <div class="thumbnails" id="thumbs\${idx}">' >> docs/index.html
+        echo '          \${presentation.slides.map((slide, i) => `<img class="thumb\${i===0?\" selected\":\"\"}" src="\${slide}" data-index="\${i}" alt="サムネ\${i+1}">`).join("")}' >> docs/index.html
+        echo '        </div>' >> docs/index.html
+        echo '      `;' >> docs/index.html
+        echo '      document.getElementById("presentations").appendChild(presDiv);' >> docs/index.html
+        echo '      let current = 0;' >> docs/index.html
+        echo '      const imgElem = document.getElementById(`slideimg\${idx}`);' >> docs/index.html
+        echo '      const ctrElem = document.getElementById(`slidectr\${idx}`);' >> docs/index.html
+        echo '      const prevBtn = document.getElementById(`prev\${idx}`);' >> docs/index.html
+        echo '      const nextBtn = document.getElementById(`next\${idx}`);' >> docs/index.html
+        echo '      const thumbs = presDiv.querySelectorAll(".thumb");' >> docs/index.html
+        echo '      function show(n) {' >> docs/index.html
+        echo '        current = n;' >> docs/index.html
+        echo '        imgElem.src = presentation.slides[current];' >> docs/index.html
+        echo '        ctrElem.textContent = (current+1) + " / " + presentation.slides.length;' >> docs/index.html
+        echo '        thumbs.forEach((t,i)=>t.classList.toggle("selected",i===current));' >> docs/index.html
+        echo '        prevBtn.disabled = (current === 0);' >> docs/index.html
+        echo '        nextBtn.disabled = (current === presentation.slides.length-1);' >> docs/index.html
+        echo '      }' >> docs/index.html
+        echo '      prevBtn.onclick = ()=> show(Math.max(current-1,0));' >> docs/index.html
+        echo '      nextBtn.onclick = ()=> show(Math.min(current+1,presentation.slides.length-1));' >> docs/index.html
+        echo '      thumbs.forEach((thumb,i)=>thumb.onclick=()=>show(i));' >> docs/index.html
+        echo '    });' >> docs/index.html
+        echo '    if (presentations.length === 0) {' >> docs/index.html
+        echo '      document.getElementById("presentations").innerHTML = `' >> docs/index.html
+        echo '        <div class="presentation-card">' >> docs/index.html
+        echo '          <h2 class="presentation-title">プレゼンテーションが見つかりません</h2>' >> docs/index.html
+        echo '          <p>source/ フォルダにPowerPointファイル(.pptx)をアップロードしてください。</p>' >> docs/index.html
+        echo '        </div>' >> docs/index.html
+        echo '      `;' >> docs/index.html
+        echo '    }' >> docs/index.html
+        echo '  </script>' >> docs/index.html
+        echo '</body>' >> docs/index.html
+        echo '</html>' >> docs/index.html
 
     - name: Setup Pages
       uses: actions/configure-pages@v4
