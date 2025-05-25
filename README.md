@@ -24,11 +24,12 @@ PowerPointファイルが自動的にSlideShare風の美しいWebビューアー
 ```
 ├── source/          # PowerPointファイルを配置
 │   └── *.pptx      # アップロードするファイル
-├── output/          # 変換結果（自動生成）
-│   ├── *.pdf       # PDF版
-│   └── slides/     # スライド画像
-└── docs/           # SlideShare風ビューアー
-    └── index.html  # メインページ
+├── docs/
+│   ├── index.html  # メインページ
+│   └── output/
+│       ├── *.pdf   # PDF版
+│       └── slides/ # スライド画像
+└── README.md
 ```
 
 ## 🔧 使用方法
@@ -49,7 +50,7 @@ PowerPointファイルが自動的にSlideShare風の美しいWebビューアー
 - **Esc キー**: フルスクリーン終了
 
 ## 📥 直接ダウンロード
-- [test4.pdf](output/test4.pdf)
+- [test4.pdf](docs/output/test4.pdf)
 
 ## 🕒 最終更新
-2025年05月25日 06:13:20
+2025年05月25日 06:39:20
