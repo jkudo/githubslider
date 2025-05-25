@@ -492,6 +492,11 @@
 
         // プレゼンテーションデータを動的に生成
         const presentations = [];
+                presentations.push({
+                    name: 'test2',
+                    pdfUrl: '../output/test2.pdf',
+                    slides: ['../output/slides/test2-00.png','../output/slides/test2-01.png','../output/slides/test2-02.png','../output/slides/test2-03.png','../output/slides/test2-04.png','../output/slides/test2-05.png','../output/slides/test2-06.png','../output/slides/test2-07.png']
+                });
 
         // HTMLを生成
         const container = document.getElementById('presentations');
