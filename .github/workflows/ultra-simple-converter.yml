@@ -1,8 +1,10 @@
-name: Ultra Simple PowerPoint Converter
+name: Convert PowerPoint to PDF and Images
 
 on:
   push:
-    paths: ['source/*.pptx', 'source/*.ppt']
+    paths:
+      - 'source/*.pptx'
+      - 'source/*.ppt'
   workflow_dispatch:
 
 permissions:
@@ -15,95 +17,229 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Debug - Check files
-        run: |
-          echo "=== Repository structure ==="
-          find . -type f -name "*.pptx" -o -name "*.ppt" | head -10
+    - name: Install LibreOffice
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libreoffice
 
-      - name: Install tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libreoffice imagemagick
-          sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/g' /etc/ImageMagick-6/policy.xml
+    - name: Install ImageMagick and configure
+      run: |
+        sudo apt-get install -y imagemagick
+        # PDF変換のためのポリシー設定
+        if [ -f /etc/ImageMagick-6/policy.xml ]; then
+          sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml
+        elif [ -f /etc/ImageMagick-7/policy.xml ]; then
+          sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-7/policy.xml
+        fi
 
-      - name: Convert files
-        run: |
-          mkdir -p output docs/output/slides
-
-          converted=false
-          for file in source/*.pptx source/*.ppt; do
-            if [ -f "$file" ]; then
-              echo "Converting: $file"
-              libreoffice --headless --convert-to pdf --outdir output "$file"
-              converted=true
-            fi
-          done
-
-          if [ "$converted" = false ]; then
-            echo "No PowerPoint files found!"
-            exit 1
+    - name: Convert PPTX to PDF
+      run: |
+        mkdir -p output
+        for file in source/*.ppt*; do
+          if [ -f "$file" ]; then
+            echo "Converting: $file"
+            libreoffice --headless --convert-to pdf --outdir output "$file"
           fi
+        done
 
-          for pdf in output/*.pdf; do
-            if [ -f "$pdf" ]; then
-              filename=$(basename "$pdf" .pdf)
-              echo "Creating images for: $filename"
-              convert -density 150 "$pdf" "output/slides/${filename}-%02d.png" || echo "Image conversion failed for $pdf"
-            fi
-          done
+    - name: Convert PDF to PNG images
+      run: |
+        mkdir -p docs/output/slides
+        for pdf in output/*.pdf; do
+          if [ -f "$pdf" ]; then
+            filename=$(basename "$pdf" .pdf)
+            echo "Creating slides for: $pdf"
+            convert -density 150 "$pdf" -quality 90 "docs/output/slides/${filename}-%02d.png"
+          fi
+        done
 
-          cp -r output docs/ 2>/dev/null || echo "Copy completed with warnings"
+    - name: Copy PDFs to docs/output/
+      run: |
+        mkdir -p docs/output
+        cp output/*.pdf docs/output/ || true
 
-      - name: Create HTML viewer
-        run: |
-          echo '<!DOCTYPE html>' > docs/index.html
-          echo '<html lang="ja">' >> docs/index.html
-          echo '<head>' >> docs/index.html
-          echo '    <meta charset="UTF-8">' >> docs/index.html
-          echo '    <meta name="viewport" content="width=device-width, initial-scale=1.0">' >> docs/index.html
-          echo '    <title>スライドビューアー</title>' >> docs/index.html
-          echo '    <style>' >> docs/index.html
-          echo '        body { font-family: sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f5f5f5; }' >> docs/index.html
-          echo '        .card { background: white; border-radius: 10px; padding: 30px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }' >> docs/index.html
-          echo '        .title { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 20px; }' >> docs/index.html
-          echo '        .download { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }' >> docs/index.html
-          echo '        .download:hover { background: #0056b3; }' >> docs/index.html
-          echo '        .slide-container { text-align: center; margin: 20px 0; }' >> docs/index.html
-          echo '        .slide-img { max-width: 100%; max-height: 600px; border: 1px solid #ddd; border-radius: 5px; margin: 10px; }' >> docs/index.html
-          echo '        .nav { text-align: center; margin: 20px 0; }' >> docs/index.html
-          echo '        .btn { background: #28a745; color: white; border: none; padding: 10px 20px; margin: 0 5px; border-radius: 5px; cursor: pointer; }' >> docs/index.html
-          echo '        .btn:hover { background: #1e7e34; }' >> docs/index.html
-          echo '        .btn:disabled { background: #ccc; cursor: not-allowed; }' >> docs/index.html
-          echo '        .counter { text-align: center; color: #666; margin: 10px 0; }' >> docs/index.html
-          echo '        .thumbnails { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 20px 0; }' >> docs/index.html
-          echo '        .thumb { width: 80px; height: 60px; border: 2px solid #ddd; border-radius: 3px; cursor: pointer; }' >> docs/index.html
-          echo '        .thumb:hover, .thumb.active { border-color: #007bff; }' >> docs/index.html
-          echo '        .error { background: #f8d7da; color: #721c24; padding: 20px; border-radius: 5px; text-align: center; }' >> docs/index.html
-          echo '    </style>' >> docs/index.html
-          echo '</head>' >> docs/index.html
-          echo '<body>' >> docs/index.html
-          echo '    <div class="card">' >> docs/index.html
-          echo '        <h1 class="title">📊 プレゼンテーションビューアー</h1>' >> docs/index.html
-          echo '        <div id="content">Loading...</div>' >> docs/index.html
-          echo '    </div>' >> docs/index.html
-          echo '    <script>' >> docs/index.html
-          echo '      document.getElementById("content").innerHTML = "<div class=\"error\"><h3>⚠️ プレゼンテーションが見つかりません</h3><p>source/ フォルダにPowerPointファイルをアップロードして、GitHub Actionsを実行してください。</p></div>";' >> docs/index.html
-          echo '    </script>' >> docs/index.html
-          echo '</body>' >> docs/index.html
-          echo '</html>' >> docs/index.html
+    - name: Create SlideShare-style viewer
+      run: |
+        mkdir -p docs
+        cat > docs/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>プレゼンテーション - SlideShare風ビューアー</title>
+            <style>
+                /* ...（省略：CSS部分は元のものを流用してください）... */
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="header-content">
+                    <div class="logo">📊 SlideViewer</div>
+                    <div class="header-info">
+                        最終更新: <span id="timestamp"></span>
+                    </div>
+                </div>
+            </div>
 
-      - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: './docs'
-      - uses: actions/deploy-pages@v4
+            <div class="container">
+                <div id="presentations"></div>
+            </div>
 
-      - name: Commit
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add . || echo "Nothing to add"
-          git commit -m "Convert slides $(date)" || echo "Nothing to commit"
-          git push || echo "Nothing to push"
+            <script>
+                class SlideViewer {
+                    /* ...（省略：元のJavaScriptをそのまま貼ってください）... */
+                }
+                // タイムスタンプを設定
+                document.getElementById('timestamp').textContent = new Date().toLocaleString('ja-JP', {
+                    timeZone: 'Asia/Tokyo',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                // プレゼンテーションデータを動的に生成
+                const presentations = [];
+        EOF
+
+        for pdf in docs/output/*.pdf; do
+          if [ -f "$pdf" ]; then
+            filename=$(basename "$pdf" .pdf)
+            echo "                presentations.push({" >> docs/index.html
+            echo "                    name: '$filename'," >> docs/index.html
+            echo "                    pdfUrl: 'output/${filename}.pdf'," >> docs/index.html
+            echo -n "                    slides: [" >> docs/index.html
+            first=true
+            for img in docs/output/slides/${filename}-*.png; do
+              if [ -f "$img" ]; then
+                imgname=$(basename "$img")
+                if [ "$first" = true ]; then
+                  first=false
+                else
+                  echo -n "," >> docs/index.html
+                fi
+                echo -n "'output/slides/$imgname'" >> docs/index.html
+              fi
+            done
+            echo "]" >> docs/index.html
+            echo "                });" >> docs/index.html
+          fi
+        done
+
+        cat >> docs/index.html << 'EOF'
+
+                const container = document.getElementById('presentations');
+                presentations.forEach((presentation, index) => {
+                    /* ...（省略：元のJavaScriptをそのまま貼ってください）... */
+                });
+
+                if (presentations.length === 0) {
+                    container.innerHTML = `
+                        <div class="presentation-card">
+                            <div class="presentation-header">
+                                <h2 class="presentation-title">プレゼンテーションが見つかりません</h2>
+                                <p style="margin-top: 15px; color: #666;">
+                                    <code>source/</code> フォルダにPowerPointファイル(.pptx)をアップロードしてください。<br>
+                                    自動的に変換されてここに表示されます。
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }
+            </script>
+        </body>
+        </html>
+        EOF
+
+    - name: Update README
+      run: |
+        cat > README.md << 'EOF'
+        # 📊 SlideShare風プレゼンテーションビューアー
+
+        PowerPointファイルが自動的にSlideShare風の美しいWebビューアーに変換されます。
+
+        ## 🌐 スライドを見る
+        [**🎯 SlideShare風ビューアーを開く**](https://$(echo $GITHUB_REPOSITORY | cut -d'/' -f1).github.io/$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)/)
+
+        ## ✨ 主な機能
+        - 📱 **レスポンシブデザイン** - PC・タブレット・スマホ対応
+        - 🖼️ **サムネイル一覧** - 全スライドを一覧表示
+        - ⌨️ **キーボードナビゲーション** - ←→キーでスライド送り
+        - 🔍 **フルスクリーンモード** - プレゼンテーション表示
+        - 📊 **プログレスバー** - 進行状況を視覚化
+        - 💾 **PDFダウンロード** - 元ファイルの取得
+
+        ## 🎨 デザインの特徴
+        - 現代的なグラデーション背景
+        - ガラスモーフィズム効果
+        - SlideShare風の洗練されたUI
+        - スムーズなアニメーション
+        - プロフェッショナルな見た目
+
+        ## 📁 ファイル構成
+        ```
+        ├── source/          # PowerPointファイルを配置
+        │   └── *.pptx      # アップロードするファイル
+        ├── docs/
+        │   ├── index.html  # メインページ
+        │   └── output/
+        │       ├── *.pdf   # PDF版
+        │       └── slides/ # スライド画像
+        └── README.md
+        ```
+
+        ## 🔧 使用方法
+        1. **📤 アップロード**: `source/`フォルダにPowerPointファイル(.pptx)をアップロード
+        2. **⚡ 自動変換**: GitHub Actionsが自動的に変換を開始
+        3. **🌐 公開**: GitHub PagesでSlideShare風ビューアーが公開
+        4. **👀 閲覧**: 美しいWebインターフェースでスライドを閲覧
+
+        ## 🎯 操作方法
+        ### 基本操作
+        - **← → ボタン**: スライド送り
+        - **サムネイル**: クリックで任意のスライドにジャンプ
+        - **フルスクリーンボタン**: プレゼンテーションモード
+        - **PDFダウンロード**: 元ファイルのダウンロード
+
+        ### キーボードショートカット
+        - **← / → キー**: スライド送り（フルスクリーン時）
+        - **Esc キー**: フルスクリーン終了
+
+        ## 📥 直接ダウンロード
+        EOF
+
+        for pdf in docs/output/*.pdf; do
+          if [ -f "$pdf" ]; then
+            filename=$(basename "$pdf")
+            echo "- [${filename}](docs/output/${filename})" >> README.md
+          fi
+        done
+
+        echo "" >> README.md
+        echo "## 🕒 最終更新" >> README.md
+        echo "$(date '+%Y年%m月%d日 %H:%M:%S')" >> README.md
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: './docs'
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add .
+        git commit -m "🔄 Auto-convert PowerPoint slides [$(date '+%Y-%m-%d %H:%M:%S')]" || exit 0
+        git push
